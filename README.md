@@ -1,3 +1,7 @@
-# Análise de imagens do twitter com Azure
+# Image recognition
 
-Este projeto é uma POC baseada em cursos da Alura de análise de fotos extraídas da API do twitter.
+Implemented tests:
+
+* Azure Computer Vision API with twitter data from celebrities
+* Azure Computer Vision API with twitter data from brands
+* Azure Computer Vision API with brand logos Kaggle dataset
