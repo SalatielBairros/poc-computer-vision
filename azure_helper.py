@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 import time
 
-class AzureHelper:
+class AzureComputerVisionConnector:
 
     def get_client(self, appsettingsFile):
         appsettings = {}
@@ -115,6 +115,7 @@ class AzureHelper:
 
     def draw_rectangle(self, filePath, rectangle):
         img = matplotlib.image.imread(filePath)
+        img.na
         figure, ax = plt.subplots(1)
         rect = matplotlib.patches.Rectangle((rectangle['x'], rectangle['y']), rectangle['w'], rectangle['h'], fill=False, edgecolor='red', linewidth=2)
         ax.imshow(img)
