@@ -12,10 +12,13 @@ import time
 
 class AzureComputerVisionConnector:
 
-    def get_client(self, appsettingsFile):
+    def __init__(self, appsettings_file = './appsettings.json'):
+        self.appsettings_file = appsettings_file
+
+    def get_client(self) -> ComputerVisionClient:
         appsettings = {}
 
-        with open(appsettingsFile) as f:
+        with open(self.appsettings_file) as f:
             appsettings = json.loads(f.read(), object_hook=lambda d: SimpleNamespace(**d))
 
         credentials = CognitiveServicesCredentials(appsettings.azure_key)
