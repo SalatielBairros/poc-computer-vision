@@ -17,6 +17,14 @@ class AzureComputerVisionConnector:
         self.base_path = base_path
         self.original_folder_name = original_folder_name
         self.json_analysis_folder = json_analysis_folder
+        self.default_visual_features = [
+            VisualFeatureTypes.brands,
+            VisualFeatureTypes.tags,
+            VisualFeatureTypes.description, 
+            VisualFeatureTypes.objects,
+            VisualFeatureTypes.categories,
+            VisualFeatureTypes.image_type
+        ]
 
     def get_client(self) -> ComputerVisionClient:
         appsettings = {}
@@ -49,6 +57,24 @@ class AzureComputerVisionConnector:
 
         return pd.DataFrame(predictions)
 
+    def analyze_image(self, client, image):
+        analysis = client.analyze_image_in_stream(image, visual_features=[VisualFeatureTypes.brands, VisualFeatureTypes.tags, VisualFeatureTypes.description, VisualFeatureTypes.objects])
+        brands = self.__get_brands(analysis)
+        tags = self.__get_tags(analysis)
+        captions = self.__get_caption(analysis)    
+        categories = self.__get_categories(analysis)    
+        objects = self.__get_objects(analysis)    
+        return {
+            'brands': brands,
+            'tags': tags,
+            'captions': captions,
+            'categories': categories,
+            # https://docs.microsoft.com/en-us/python/api/azure-cognitiveservices-vision-computervision/azure.cognitiveservices.vision.computervision.models.adultinfo?view=azure-python
+            'adult_info': analysis.adult,
+            'type': analysis.image_type,
+            'objects': objects
+        }
+
     def __get_image_original_path(self, filename):
         return f"{self.base_path}/{self.original_folder_name}/{filename}"
 
@@ -60,7 +86,7 @@ class AzureComputerVisionConnector:
         png_bytes_io.seek(0)
         return png_bytes_io
 
-    def get_brands(self, analise):
+    def __get_brands(self, analise):
         brands = []
         for brand in analise.brands:
             brands.append({
@@ -75,7 +101,7 @@ class AzureComputerVisionConnector:
             })        
         return brands
 
-    def get_tags(self, analysis):
+    def __get_tags(self, analysis):
         tags = []
         for tag in analysis.tags:
             tags.append({
@@ -84,7 +110,16 @@ class AzureComputerVisionConnector:
             })
         return tags
 
-    def get_caption(self, analysis):
+    def __get_categories(self, analysis):
+        categories = []
+        for cat in analysis.categories:
+            categories.append({
+                'name': cat.name,
+                'score': cat.score
+            })
+        return categories
+
+    def __get_caption(self, analysis):
         captions = []    
         for c in analysis.description.captions:
             captions.append({
@@ -93,16 +128,16 @@ class AzureComputerVisionConnector:
             })
         return captions
 
-    def analyze_image(self, client, image):
-        analysis = client.analyze_image_in_stream(image, visual_features=[VisualFeatureTypes.brands, VisualFeatureTypes.tags, VisualFeatureTypes.description, VisualFeatureTypes.objects])
-        brands = self.get_brands(analysis)
-        tags = self.get_tags(analysis)
-        captions = self.get_caption(analysis)    
-        return {
-            'brands': brands,
-            'tags': tags,
-            'captions': captions
-        }
+    def __get_objects(self, analysis):
+        objects = []    
+        for obj in analysis.objects:
+            objects.append({
+                'name': obj.object_property,
+                'confidence': obj.confidence,
+                'parent':obj.parent
+            })
+        return objects
+
 
     def __save_as_json(self, analysis_result, filename) -> str:
         filePath = f"{self.base_path}/{self.json_analysis_folder}/{filename.split('.')[0]}.json"
