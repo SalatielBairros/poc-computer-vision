@@ -12,8 +12,11 @@ import time
 
 class AzureComputerVisionConnector:
 
-    def __init__(self, appsettings_file = './appsettings.json'):
+    def __init__(self, base_path, appsettings_file = './appsettings.json', original_folder_name = 'original', json_analysis_folder = 'analysis'):
         self.appsettings_file = appsettings_file
+        self.base_path = base_path
+        self.original_folder_name = original_folder_name
+        self.json_analysis_folder = json_analysis_folder
 
     def get_client(self) -> ComputerVisionClient:
         appsettings = {}
@@ -25,6 +28,37 @@ class AzureComputerVisionConnector:
         client = ComputerVisionClient(appsettings.azure_endpoint, credentials)
         print(client.api_version)
         return client
+
+    def analyze_all_images(self, filenames, patch_size = 19, time_interval=60):
+        predictions = []
+        l = len(filenames)
+        n_patch = 0
+        for i in range(l):
+            filename = filenames[i]
+            print(f'Analisando imagem ({i}/{l}): {filename}')
+            filePath = self.__get_image_original_path(filename)
+            image_stream = self.__get_image_stream(filePath)
+            analysis_result = self.analyze_image(image_stream)
+            self.__save_as_json(analysis_result, filename)
+            predictions.append(self.create_prediction_item(analysis_result, filePath))
+            self.draw_rectangle(filePath, analysis_result['brands'][0]['rectangle'])
+
+            if(n_patch >= patch_size):
+                time.sleep(time_interval)
+                n_patch = 0
+
+        return pd.DataFrame(predictions)
+
+    def __get_image_original_path(self, filename):
+        return f"{self.base_path}/{self.original_folder_name}/{filename}"
+
+    def __get_image_stream(self, filePath):        
+        image = Image.open(filePath)
+
+        png_bytes_io = BytesIO()
+        image.save(png_bytes_io, format='JPEG')
+        png_bytes_io.seek(0)
+        return png_bytes_io
 
     def get_brands(self, analise):
         brands = []
@@ -69,37 +103,12 @@ class AzureComputerVisionConnector:
             'tags': tags,
             'captions': captions
         }
-    
-    def get_image_stream(self, filePath):        
-        image = Image.open(filePath)
 
-        png_bytes_io = BytesIO()
-        image.save(png_bytes_io, format='JPEG')
-        png_bytes_io.seek(0)
-        return png_bytes_io
-
-    def save_as_json(self, analysis_result, filePath):
+    def __save_as_json(self, analysis_result, filename) -> str:
+        filePath = f"{self.base_path}/{self.json_analysis_folder}/{filename.split('.')[0]}.json"
         with open(filePath, 'w') as f:
             json.dump(analysis_result, f)
-
-    def analyze_all_images(self, filenames, patch_size = 19, time_interval=60):
-        predictions = []
-        l = len(filenames)
-        n_patch = 0
-        for i in range(len(filenames)):
-            filename = filenames[i]
-            print(f'Analisando imagem ({i}/{l}): {filename}')
-            image_stream = self.get_image_stream(filename)
-            analysis_result = self.analyze_image(image_stream)
-            self.save_as_json(analysis_result, filename)
-            predictions.append(self.create_prediction_item(analysis_result, filename))
-            self.draw_rectangle(filename, analysis_result['brands'][0]['rectangle'])
-
-            if(n_patch >= patch_size):
-                time.sleep(time_interval)
-                n_patch = 0
-
-        return pd.DataFrame(predictions)
+        return filePath
 
     def create_prediction_item(self, analysis_result, filename):
         brand = ''
